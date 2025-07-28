@@ -1,12 +1,19 @@
 import csv
 import re
 import threading
+import os
 from netmiko import ConnectHandler
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+#Set your credentials and seed switch here
+seed_switch_ip = "10.100.250.1"
+username = "admin"
+password = "password"
 
 visited = set()
 results = []
 lock = threading.Lock()
+os.makedirs("configs", exist_ok=True)
 
 def connect_and_discover(ip, username, password, device_type="cisco_ios"):
     with lock:
@@ -48,6 +55,15 @@ def connect_and_discover(ip, username, password, device_type="cisco_ios"):
         with lock:
             results.append({"ip": ip, "hostname": hostname, "model": model})
 
+        #Config file write
+        txt_path = os.path.join("configs", f"{hostname}.txt")
+        try:
+            conf_output = connection.send_command('show run')
+            with open(txt_path, "w") as file:
+                file.write(conf_output)
+        except Exception as e:
+            print(e)
+        
         #Get neighbors via CDP
         cdp_output = connection.send_command("show cdp neighbors detail")
         neighbors = re.findall(r"IP address: (\d+\.\d+\.\d+\.\d+)", cdp_output)
@@ -66,11 +82,6 @@ def export_to_csv(filename):
         for entry in results:
             writer.writerow(entry)
 
-#Set your credentials and seed switch here
-seed_switch_ip = "10.100.250.1"
-username = "admin"
-password = "password"
-
 #ThreadPoolExecutor logic
 with ThreadPoolExecutor(max_workers=5) as executor:
     future_to_ip = {}
@@ -88,7 +99,7 @@ with ThreadPoolExecutor(max_workers=5) as executor:
             try:
                 neighbors = future.result()
                 for neighbor_ip in neighbors:
-                    if neighbor_ip.startswith("10.200."):
+                    if neighbor_ip.startswith("10.200."): #Here is where you specify skips
                         print(f"Skipping access point at {neighbor_ip}")
                         continue
                     with lock:
