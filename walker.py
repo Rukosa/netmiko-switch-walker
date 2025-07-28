@@ -10,6 +10,10 @@ seed_switch_ip = "10.100.250.1"
 username = "admin"
 password = "password"
 
+#Regex for limiting which IPs will be connected to. This skips trying to connect to all those other CDP neighbors
+#Subject to change based on environment
+ip_pattern = re.compile(r"^10\.(100|120|130|140|170|180)\.250\.\d{1,3}$|^10\.25\.10\.1$")
+
 visited = set()
 results = []
 lock = threading.Lock()
@@ -99,8 +103,8 @@ with ThreadPoolExecutor(max_workers=5) as executor:
             try:
                 neighbors = future.result()
                 for neighbor_ip in neighbors:
-                    if neighbor_ip.startswith("10.200."): #Here is where you specify skips
-                        print(f"Skipping access point at {neighbor_ip}")
+                    if not bool(ip_pattern.match(neighbor_ip)): #Here is where you specify skips
+                        print(f"Skipping non-switch device at {neighbor_ip}")
                         continue
                     with lock:
                         if neighbor_ip not in visited and neighbor_ip not in submitted:
