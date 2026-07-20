@@ -2,6 +2,7 @@ import csv
 import re
 import threading
 import os
+from datetime import date
 from netmiko import ConnectHandler
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -9,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 seed_switch_ip = "10.100.250.1"
 username = "admin"
 password = "password"
+dir_with_date = "configs_" + str(date.today()) 
 
 #RISK THRESHOLDS
 HIGH_PCT = 85
@@ -22,7 +24,7 @@ ip_pattern = re.compile(r"^10\.(100|120|130|140|170|180)\.250\.\d{1,3}$|^10\.25\
 visited = set()
 results = []
 lock = threading.Lock()
-os.makedirs("configs", exist_ok=True)
+os.makedirs(dir_with_date, exist_ok=True)
 
 def connect_and_discover(ip, username, password, device_type="cisco_ios"):
     with lock:
@@ -62,7 +64,7 @@ def connect_and_discover(ip, username, password, device_type="cisco_ios"):
                 break
 
         #Save config
-        txt_path = os.path.join("configs", f"{hostname}.txt")
+        txt_path = os.path.join(dir_with_date, f"{hostname}.txt")
         try:
             conf_output = connection.send_command('show run')
             with open(txt_path, "w") as file:
@@ -162,7 +164,7 @@ def connect_and_discover(ip, username, password, device_type="cisco_ios"):
 
 
 def export_to_csv(filename):
-    with open(filename, mode='w', newline='') as file:
+    with open(dir_with_date + "/" + filename, mode='w', newline='') as file:
         writer = csv.DictWriter(file, fieldnames=[
             "ip",
             "hostname",
